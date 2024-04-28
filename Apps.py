@@ -59,8 +59,8 @@ def transcode(req_str: str):
         return {"statusCode": 400, "body": "Path is required"}
     
     MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT')
-    MINIO_ACCESS_KEY = os.getenv("minio-access-key")
-    MINIO_SECRET_KEY = os.getenv("minio-secret-key")
+    MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY")
+    MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY")
     BUCKET_NAME = os.getenv('BUCKET_NAME')
 
     minio_client = Minio(
