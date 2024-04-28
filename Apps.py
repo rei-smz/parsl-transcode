@@ -6,10 +6,7 @@ from parsl.data_provider.files import File
 def download_video(minio_client, bucket_name, object_path, outputs=[]):
     local_path = outputs[0].filepath
 
-    response = minio_client.get_object(bucket_name, object_path)
-    with open(local_path, 'wb') as file_data:
-        for data in response.stream(32*1024):
-            file_data.write(data)
+    minio_client.fget_object(bucket_name, object_path, local_path)
 
 @bash_app
 def run_ffmpeg(args, inputs=[], outputs=[]):
@@ -29,8 +26,10 @@ def run_ffmpeg(args, inputs=[], outputs=[]):
     return cmd
 
 @python_app
-def upload_video(minio_client, tmp_path, inputs=[]):
-    pass
+def upload_video(minio_client, bucket_name, object_path, inputs=[]):
+    local_path = inputs[0].filepath
+
+    minio_client.fput_object(bucket_name, object_path, local_path)
 
 @join_app
 def transcode(req_str):
@@ -75,5 +74,14 @@ def transcode(req_str):
     
     transcoding_future = run_ffmpeg(args, 
                                     [download_future.output[0]], 
-                                    [File(os.path.join(tmp_path, "output.", video_format))])
-
+                                    [File(os.path.join(tmp_path, "output." + video_format))])
+    
+    upload_future = upload_video(minio_client, 
+                                 BUCKET_NAME, 
+                                 os.path.join(path, "output." + video_format), 
+                                 [transcoding_future.output[0]])
+    
+    if upload_future.result() == "Success":
+        return {"statusCode": 200, "body": "Success"}
+    else:
+        return {"statusCode": 500, "body": "Failed"}
