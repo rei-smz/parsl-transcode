@@ -1,15 +1,18 @@
 import parsl
 from parsl import python_app, bash_app, join_app
 from parsl.data_provider.files import File
+from minio import Minio
 
 @python_app
-def download_video(minio_client, bucket_name, object_path, outputs=[]):
+def download_video(minio_client: Minio, bucket_name: str, object_path: str, outputs=[]) -> str:
     local_path = outputs[0].filepath
 
     minio_client.fget_object(bucket_name, object_path, local_path)
 
+    return "Success"
+
 @bash_app
-def run_ffmpeg(args, inputs=[], outputs=[]):
+def run_ffmpeg(args: dict[str, str], inputs=[], outputs=[]) -> str:
     resolution = args.get('resolution', '1280x720')
     acodec = args.get('acodec', 'copy')
     vcodec = args.get('vcodec', '')
@@ -26,17 +29,20 @@ def run_ffmpeg(args, inputs=[], outputs=[]):
     return cmd
 
 @python_app
-def upload_video(minio_client, bucket_name, object_path, inputs=[]):
+def upload_video(minio_client: Minio, bucket_name: str, object_path: str, inputs=[]) -> str:
     local_path = inputs[0].filepath
 
     minio_client.fput_object(bucket_name, object_path, local_path)
 
+    return "Success"
+
 @join_app
-def transcode(req_str):
+def transcode(req_str: str):
     import json
     import time
     import os
     from minio import Minio
+    import shutil
 
     try:
         body = json.loads(req_str)
@@ -81,6 +87,10 @@ def transcode(req_str):
                                  os.path.join(path, "output." + video_format), 
                                  [transcoding_future.output[0]])
     
+    
+    if upload_future.done():
+        shutil.rmtree(tmp_path)
+
     if upload_future.result() == "Success":
         return {"statusCode": 200, "body": "Success"}
     else:
